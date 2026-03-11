@@ -97,7 +97,7 @@ ros2 param get /delivery_manager_node corridor_y
 2. **机器人不动**：检查 `/delivery_path` 是否有消息、`/turtle1/pose` 是否正常。
 3. **地图未绘制**：确认 turtlesim 服务存在：`ros2 service list | grep spawn`。
 4. **房间号错误**：仅支持 `room_names` 参数中声明的房间名。
-5. **改了 geometry 但窗口没变**：通常是没重新构建/没重新 source。请执行 `colcon build --packages-select delivery_robot && source install/setup.bash`；启动日志会打印 `turtlesim_window_geometry` 与 `turtlesim_window_scale` 以确认新参数已生效。
+5. **改了 geometry 但窗口没变**：通常是没重新构建/没重新 source。请执行 `colcon build --packages-select delivery_robot && source install/setup.bash`；启动日志会打印 `turtlesim_window_geometry` 与 `turtlesim_window_scale` 以确认新参数已生效。当前 launch 同时传 `-geometry` 与 `-qwindowgeometry`，并关闭 `QT_AUTO_SCREEN_SCALE_FACTOR`，以提高不同桌面环境下生效概率。
 6. **`QImage::pixel out of range` 警告**：这是坐标超出 turtlesim 11x11 世界边界导致；请把房间坐标控制在 0.6~10.4 范围内（本项目已自动做边界保护和默认坐标优化）。
 7. **重要限制**：`-geometry`/`QT_SCALE_FACTOR` 只改变窗口显示大小，**不会改变 turtlesim 内部世界尺寸(11x11)与逻辑分辨率**。
 
@@ -107,6 +107,8 @@ ros2 param get /delivery_manager_node corridor_y
 - 起点由 `start_x/start_y` 控制，已默认放到左下远处，避免初始就在走廊中间。
 - 通过调大房间坐标间距（本仓库默认已拉大）可减少房间号文字重叠。
 - 可通过 `return_wait_seconds` 控制到房间后停留时长。
+
+- 说明：`turtle.screensize()` 是 Python 标准库 `turtle` 的 API，不作用于 ROS2 的 `turtlesim_node`（Qt 程序），因此本项目通过 launch 传 Qt/X11 窗口参数控制大小。
 
 ## 12. 调试建议
 - 观察 `status_monitor_node` 的调试仪表板输出。

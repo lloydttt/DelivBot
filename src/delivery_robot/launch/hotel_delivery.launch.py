@@ -33,8 +33,17 @@ def generate_launch_description() -> LaunchDescription:
         executable='turtlesim_node',
         name='turtlesim_node',
         output='screen',
-        arguments=['-geometry', LaunchConfiguration('turtlesim_window_geometry')],
-        additional_env={'QT_SCALE_FACTOR': LaunchConfiguration('turtlesim_window_scale')},
+        # Try both generic X11 geometry and Qt-native qwindowgeometry.
+        arguments=[
+            '-geometry',
+            LaunchConfiguration('turtlesim_window_geometry'),
+            '-qwindowgeometry',
+            LaunchConfiguration('turtlesim_window_geometry'),
+        ],
+        additional_env={
+            'QT_SCALE_FACTOR': LaunchConfiguration('turtlesim_window_scale'),
+            'QT_AUTO_SCREEN_SCALE_FACTOR': '0',
+        },
     )
     map_node = Node(package='delivery_robot', executable='hotel_map_node.py', name='hotel_map_node', output='screen', parameters=[params_file])
 
