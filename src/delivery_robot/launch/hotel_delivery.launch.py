@@ -4,7 +4,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.actions import DeclareLaunchArgument, LogInfo, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -20,12 +20,21 @@ def generate_launch_description() -> LaunchDescription:
         description='Qt window geometry for turtlesim: <width>x<height>+<x>+<y>.',
     )
 
+
+    # Optional UI scale factor for desktop environments where -geometry is ignored by window manager.
+    scale_arg = DeclareLaunchArgument(
+        'turtlesim_window_scale',
+        default_value='1.0',
+        description='UI scale factor hint (does not change turtlesim world size).',
+    )
+
     turtlesim = Node(
         package='turtlesim',
         executable='turtlesim_node',
         name='turtlesim_node',
         output='screen',
         arguments=['-geometry', LaunchConfiguration('turtlesim_window_geometry')],
+        additional_env={'QT_SCALE_FACTOR': LaunchConfiguration('turtlesim_window_scale')},
     )
     map_node = Node(package='delivery_robot', executable='hotel_map_node.py', name='hotel_map_node', output='screen', parameters=[params_file])
 
@@ -39,4 +48,7 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    return LaunchDescription([geometry_arg, turtlesim, map_node, delayed_nodes])
+    info1 = LogInfo(msg=['[delivery_robot] turtlesim_window_geometry=', LaunchConfiguration('turtlesim_window_geometry')])
+    info2 = LogInfo(msg=['[delivery_robot] turtlesim_window_scale=', LaunchConfiguration('turtlesim_window_scale')])
+
+    return LaunchDescription([geometry_arg, scale_arg, info1, info2, turtlesim, map_node, delayed_nodes])

@@ -62,7 +62,11 @@ source install/setup.bash
 ros2 launch delivery_robot hotel_delivery.launch.py
 # 设置 turtlesim 窗口分辨率大小（例如 1920x1080）
 ros2 launch delivery_robot hotel_delivery.launch.py turtlesim_window_geometry:=1920x1080+80+80
+# 如桌面环境忽略 geometry，可再加 UI 缩放（仅放大显示，不改变世界大小）
+ros2 launch delivery_robot hotel_delivery.launch.py turtlesim_window_geometry:=1920x1080+80+80 turtlesim_window_scale:=1.8
 ```
+
+> 注意：你修改 `launch/hotel_delivery.launch.py` 后，必须重新 `colcon build` 并 `source install/setup.bash`，否则运行的还是 install 目录里的旧 launch。
 
 ## 7. Service 测试命令
 ```bash
@@ -93,8 +97,9 @@ ros2 param get /delivery_manager_node corridor_y
 2. **机器人不动**：检查 `/delivery_path` 是否有消息、`/turtle1/pose` 是否正常。
 3. **地图未绘制**：确认 turtlesim 服务存在：`ros2 service list | grep spawn`。
 4. **房间号错误**：仅支持 `room_names` 参数中声明的房间名。
-5. **窗口太小想放大分辨率**：在 launch 参数里调 `turtlesim_window_geometry`，例如 `ros2 launch delivery_robot hotel_delivery.launch.py turtlesim_window_geometry:=1920x1080+80+80`。该参数在 `launch/hotel_delivery.launch.py` 的 `arguments=['-geometry', ...]` 里设置。
+5. **改了 geometry 但窗口没变**：通常是没重新构建/没重新 source。请执行 `colcon build --packages-select delivery_robot && source install/setup.bash`；启动日志会打印 `turtlesim_window_geometry` 与 `turtlesim_window_scale` 以确认新参数已生效。
 6. **`QImage::pixel out of range` 警告**：这是坐标超出 turtlesim 11x11 世界边界导致；请把房间坐标控制在 0.6~10.4 范围内（本项目已自动做边界保护和默认坐标优化）。
+7. **重要限制**：`-geometry`/`QT_SCALE_FACTOR` 只改变窗口显示大小，**不会改变 turtlesim 内部世界尺寸(11x11)与逻辑分辨率**。
 
 ## 11. 参数化房间命名与位置
 - 在 `config/hotel_params.yaml` 中通过 `room_names` 配置房间列表，系统会按该列表动态读取 `<room_name>_x/<room_name>_y`，并在地图上标注对应房间号。
