@@ -2,52 +2,69 @@
 
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, TimerAction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo, OpaqueFunction, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+
+def _create_turtlesim_action(_context):
+    """Prefer workspace-local turtlesim executable to avoid using system-installed binary."""
+    turtlesim_prefix = get_package_prefix('turtlesim')
+    install_root = os.path.dirname(turtlesim_prefix)
+    local_turtlesim_exe = os.path.join(install_root, 'turtlesim', 'lib', 'turtlesim', 'turtlesim_node')
+
+    geometry = LaunchConfiguration('turtlesim_window_geometry')
+
+    if os.path.exists(local_turtlesim_exe):
+        return [
+            LogInfo(msg=f'[delivery_robot] using local turtlesim executable: {local_turtlesim_exe}'),
+            ExecuteProcess(
+                cmd=[
+                    local_turtlesim_exe,
+                    '--ros-args',
+                    '-r',
+                    '__node:=turtlesim_node',
+                    '-geometry',
+                    geometry,
+                    '-qwindowgeometry',
+                    geometry,
+                ],
+                name='turtlesim_node',
+                output='screen',
+            ),
+        ]
+
+    return [
+        LogInfo(msg='[delivery_robot] local turtlesim executable not found; fallback to package launcher.'),
+        Node(
+            package='turtlesim',
+            executable='turtlesim_node',
+            name='turtlesim_node',
+            output='screen',
+            arguments=[
+                '-geometry',
+                geometry,
+                '-qwindowgeometry',
+                geometry,
+            ],
+        ),
+    ]
 
 
 def generate_launch_description() -> LaunchDescription:
     pkg_share = get_package_share_directory('delivery_robot')
     params_file = os.path.join(pkg_share, 'config', 'hotel_params.yaml')
 
-    # Use Qt geometry argument to set actual window resolution (not just DPI scaling).
     geometry_arg = DeclareLaunchArgument(
         'turtlesim_window_geometry',
         default_value='1400x1400+80+80',
         description='Qt window geometry for turtlesim: <width>x<height>+<x>+<y>.',
     )
 
-
-    # Optional UI scale factor for desktop environments where -geometry is ignored by window manager.
-    scale_arg = DeclareLaunchArgument(
-        'turtlesim_window_scale',
-        default_value='1.0',
-        description='UI scale factor hint (does not change turtlesim world size).',
-    )
-
-    turtlesim = Node(
-        package='turtlesim',
-        executable='turtlesim_node',
-        name='turtlesim_node',
-        output='screen',
-        # Try both generic X11 geometry and Qt-native qwindowgeometry.
-        arguments=[
-            '-geometry',
-            LaunchConfiguration('turtlesim_window_geometry'),
-            '-qwindowgeometry',
-            LaunchConfiguration('turtlesim_window_geometry'),
-        ],
-        additional_env={
-            'QT_SCALE_FACTOR': LaunchConfiguration('turtlesim_window_scale'),
-            'QT_AUTO_SCREEN_SCALE_FACTOR': '0',
-        },
-    )
     map_node = Node(package='delivery_robot', executable='hotel_map_node.py', name='hotel_map_node', output='screen', parameters=[params_file])
 
-    # Delay functional nodes slightly so map drawing is likely finished first.
     delayed_nodes = TimerAction(
         period=2.5,
         actions=[
@@ -57,7 +74,7 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    info1 = LogInfo(msg=['[delivery_robot] turtlesim_window_geometry=', LaunchConfiguration('turtlesim_window_geometry')])
-    info2 = LogInfo(msg=['[delivery_robot] turtlesim_window_scale=', LaunchConfiguration('turtlesim_window_scale')])
+    info = LogInfo(msg=['[delivery_robot] turtlesim_window_geometry=', LaunchConfiguration('turtlesim_window_geometry')])
+    turtlesim_action = OpaqueFunction(function=_create_turtlesim_action)
 
-    return LaunchDescription([geometry_arg, scale_arg, info1, info2, turtlesim, map_node, delayed_nodes])
+    return LaunchDescription([geometry_arg, info, turtlesim_action, map_node, delayed_nodes])
