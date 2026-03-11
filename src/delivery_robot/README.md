@@ -91,6 +91,7 @@ ros2 param get /delivery_manager_node corridor_y
 2. **机器人不动**：检查 `/delivery_path` 是否有消息、`/turtle1/pose` 是否正常。
 3. **地图未绘制**：确认 turtlesim 服务存在：`ros2 service list | grep spawn`。
 4. **房间号错误**：仅支持 `room_names` 参数中声明的房间名。
+5. **`QImage::pixel out of range` 警告**：`turtlesim` 窗口尺寸是固定的，不能在 launch 中直接调大；请把房间坐标控制在 0.6~10.4 范围内（本项目已自动做边界保护和默认坐标优化）。
 
 ## 11. 参数化房间命名与位置
 - 在 `config/hotel_params.yaml` 中通过 `room_names` 配置房间列表，系统会按该列表动态读取 `<room_name>_x/<room_name>_y`，并在地图上标注对应房间号。

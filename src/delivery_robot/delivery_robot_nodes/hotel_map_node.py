@@ -8,7 +8,15 @@ import rclpy
 from rclpy.node import Node
 from turtlesim.srv import Kill, SetPen, Spawn, TeleportAbsolute
 
-from delivery_robot_nodes.common import Point2D, VALID_ROOMS, normalize_room_names, room_positions_from_params
+from delivery_robot_nodes.common import (
+    WORLD_MAX,
+    WORLD_MIN,
+    Point2D,
+    VALID_ROOMS,
+    clamp_world,
+    normalize_room_names,
+    room_positions_from_params,
+)
 
 FONT: Dict[str, List[Tuple[Tuple[float, float], Tuple[float, float]]]] = {
     '0': [((0, 0), (1, 0)), ((1, 0), (1, 1)), ((1, 1), (0, 1)), ((0, 1), (0, 0))],
@@ -74,9 +82,9 @@ class HotelMapNode(Node):
             self._declare_if_needed(f'{room}_y', 5.0)
 
         values: Dict[str, float] = {
-            'start_x': float(self.get_parameter('start_x').value),
-            'start_y': float(self.get_parameter('start_y').value),
-            'corridor_y': float(self.get_parameter('corridor_y').value),
+            'start_x': clamp_world(float(self.get_parameter('start_x').value)),
+            'start_y': clamp_world(float(self.get_parameter('start_y').value)),
+            'corridor_y': clamp_world(float(self.get_parameter('corridor_y').value)),
         }
         values['room_names'] = room_names  # type: ignore[assignment]
         for room in room_names:
@@ -139,8 +147,8 @@ class HotelMapNode(Node):
 
     def _teleport(self, x: float, y: float, theta: float = 0.0) -> None:
         # Keep drawing turtle inside map bounds to avoid wall-hit warnings.
-        cx = min(max(x, 0.2), 10.8)
-        cy = min(max(y, 0.2), 10.8)
+        cx = clamp_world(x, WORLD_MIN, WORLD_MAX)
+        cy = clamp_world(y, WORLD_MIN, WORLD_MAX)
         self._call_sync(self.teleport_client, TeleportAbsolute.Request(x=cx, y=cy, theta=theta))
 
     def _draw_line(self, x1: float, y1: float, x2: float, y2: float, width: int = 2) -> None:

@@ -17,18 +17,18 @@
     room_names: ["room_101", "room_102", "room_103", "room_201", "room_202", "room_203"]
 
     # Enlarged spacing between adjacent rooms to reduce label overlap.
-    room_101_x: 3.2
-    room_101_y: 6.8
-    room_102_x: 6.6
-    room_102_y: 6.8
-    room_103_x: 10.0
-    room_103_y: 6.8
-    room_201_x: 3.2
-    room_201_y: 4.2
-    room_202_x: 6.6
-    room_202_y: 4.2
-    room_203_x: 10.0
-    room_203_y: 4.2
+    room_101_x: 2.6
+    room_101_y: 7.0
+    room_102_x: 5.8
+    room_102_y: 7.0
+    room_103_x: 9.0
+    room_103_y: 7.0
+    room_201_x: 2.6
+    room_201_y: 4.0
+    room_202_x: 5.8
+    room_202_y: 4.0
+    room_203_x: 9.0
+    room_203_y: 4.0
 
     # Wait duration (seconds) at room door before auto returning to start.
     return_wait_seconds: 2.5
