@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Draw a simplified hotel map in turtlesim using helper turtle."""
 
+import time
+
 import rclpy
 from rclpy.node import Node
 from turtlesim.srv import Kill, SetPen, Spawn, TeleportAbsolute
@@ -15,26 +17,31 @@ class HotelMapNode(Node):
 
         self.spawn_client = self.create_client(Spawn, '/spawn')
         self.kill_client = self.create_client(Kill, '/kill')
-        self.get_logger().info('waiting turtlesim drawing services...')
-        self.spawn_client.wait_for_service()
-        self.kill_client.wait_for_service()
 
         self.drawer_name = 'map_drawer'
         self.teleport_client = None
         self.pen_client = None
 
-        self.drawn = False
-        self.create_timer(1.0, self._draw_once)
+        self.get_logger().info('waiting turtlesim drawing services...')
+        self._wait_client(self.spawn_client, '/spawn')
+        self._wait_client(self.kill_client, '/kill')
 
-    def _call_sync(self, client, req, timeout: float = 2.0):
+        # Draw once during startup (before spin loop), avoiding deadlocks that may
+        # happen when blocking service calls are made from timer callbacks.
+        self._draw_once_on_startup()
+
+    def _wait_client(self, client, name: str) -> None:
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn(f'service {name} not ready, retrying...')
+
+    def _call_sync(self, client, req, timeout: float = 3.0):
         future = client.call_async(req)
         rclpy.spin_until_future_complete(self, future, timeout_sec=timeout)
+        if not future.done() or future.result() is None:
+            raise RuntimeError(f'service call timeout: {client.srv_name}')
         return future.result()
 
-    def _draw_once(self) -> None:
-        if self.drawn:
-            return
-        self.drawn = True
+    def _draw_once_on_startup(self) -> None:
         self.get_logger().info('start drawing hotel map')
         try:
             self._spawn_drawer()
@@ -44,16 +51,23 @@ class HotelMapNode(Node):
             self.get_logger().error(f'hotel map drawing failed: {exc}')
 
     def _spawn_drawer(self) -> None:
-        self.kill_client.call_async(Kill.Request(name=self.drawer_name))
-        result = self._call_sync(self.spawn_client, Spawn.Request(x=1.0, y=1.0, theta=0.0, name=self.drawer_name))
-        if result is None:
-            raise RuntimeError('spawn map drawer timeout')
+        # Try kill old drawer; ignore failures.
+        try:
+            self.kill_client.call_async(Kill.Request(name=self.drawer_name))
+            time.sleep(0.05)
+        except Exception:
+            pass
+
+        result = self._call_sync(
+            self.spawn_client,
+            Spawn.Request(x=1.0, y=1.0, theta=0.0, name=self.drawer_name),
+        )
         self.drawer_name = result.name
 
         self.teleport_client = self.create_client(TeleportAbsolute, f'/{self.drawer_name}/teleport_absolute')
         self.pen_client = self.create_client(SetPen, f'/{self.drawer_name}/set_pen')
-        self.teleport_client.wait_for_service()
-        self.pen_client.wait_for_service()
+        self._wait_client(self.teleport_client, f'/{self.drawer_name}/teleport_absolute')
+        self._wait_client(self.pen_client, f'/{self.drawer_name}/set_pen')
 
     def _set_pen(self, r: int, g: int, b: int, width: int, off: bool) -> None:
         self._call_sync(self.pen_client, SetPen.Request(r=r, g=g, b=b, width=width, off=int(off)))
