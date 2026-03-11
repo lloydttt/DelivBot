@@ -4,9 +4,6 @@ from dataclasses import dataclass
 from math import atan2, pi
 from typing import Dict, Iterable, List
 
-WORLD_MIN = 0.6
-WORLD_MAX = 10.4
-
 STATE_IDLE = 'idle'
 STATE_PLANNING = 'planning'
 STATE_DELIVERING_TO_CORRIDOR = 'delivering_to_corridor'
@@ -49,11 +46,6 @@ def normalize_room_names(room_names: Iterable[str]) -> List[str]:
 
 
 
-
-def clamp_world(value: float, low: float = WORLD_MIN, high: float = WORLD_MAX) -> float:
-    """Clamp a coordinate to turtlesim-safe world bounds."""
-    return min(max(value, low), high)
-
 def room_positions_from_params(params: Dict[str, float], room_names: Iterable[str]) -> Dict[str, Point2D]:
     """Build room target map from parameter dict and provided room names."""
     room_map: Dict[str, Point2D] = {}
@@ -61,7 +53,7 @@ def room_positions_from_params(params: Dict[str, float], room_names: Iterable[st
         x_key = f'{room}_x'
         y_key = f'{room}_y'
         if x_key in params and y_key in params:
-            room_map[room] = Point2D(clamp_world(float(params[x_key])), clamp_world(float(params[y_key])))
+            room_map[room] = Point2D(float(params[x_key]), float(params[y_key]))
     return room_map
 
 

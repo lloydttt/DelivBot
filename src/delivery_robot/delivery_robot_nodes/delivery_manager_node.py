@@ -23,7 +23,6 @@ from delivery_robot_nodes.common import (
     Point2D,
     build_path_for_room,
     build_return_path_from_room,
-    clamp_world,
     encode_path,
     room_positions_from_params,
 )
@@ -88,9 +87,9 @@ class DeliveryManagerNode(Node):
             self._declare_if_needed(f'{room}_y', 5.0)
 
         values = {
-            'start_x': clamp_world(float(self.get_parameter('start_x').value)),
-            'start_y': clamp_world(float(self.get_parameter('start_y').value)),
-            'corridor_y': clamp_world(float(self.get_parameter('corridor_y').value)),
+            'start_x': float(self.get_parameter('start_x').value),
+            'start_y': float(self.get_parameter('start_y').value),
+            'corridor_y': float(self.get_parameter('corridor_y').value),
             'return_wait_seconds': float(self.get_parameter('return_wait_seconds').value),
         }
         for room in self.room_names:

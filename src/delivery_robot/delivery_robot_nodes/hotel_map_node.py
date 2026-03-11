@@ -9,11 +9,8 @@ from rclpy.node import Node
 from turtlesim.srv import Kill, SetPen, Spawn, TeleportAbsolute
 
 from delivery_robot_nodes.common import (
-    WORLD_MAX,
-    WORLD_MIN,
     Point2D,
     VALID_ROOMS,
-    clamp_world,
     normalize_room_names,
     room_positions_from_params,
 )
@@ -82,9 +79,9 @@ class HotelMapNode(Node):
             self._declare_if_needed(f'{room}_y', 5.0)
 
         values: Dict[str, float] = {
-            'start_x': clamp_world(float(self.get_parameter('start_x').value)),
-            'start_y': clamp_world(float(self.get_parameter('start_y').value)),
-            'corridor_y': clamp_world(float(self.get_parameter('corridor_y').value)),
+            'start_x': float(self.get_parameter('start_x').value),
+            'start_y': float(self.get_parameter('start_y').value),
+            'corridor_y': float(self.get_parameter('corridor_y').value),
         }
         values['room_names'] = room_names  # type: ignore[assignment]
         for room in room_names:
@@ -146,10 +143,7 @@ class HotelMapNode(Node):
         self._call_sync(self.pen_client, SetPen.Request(r=r, g=g, b=b, width=width, off=int(off)))
 
     def _teleport(self, x: float, y: float, theta: float = 0.0) -> None:
-        # Keep drawing turtle inside map bounds to avoid wall-hit warnings.
-        cx = clamp_world(x, WORLD_MIN, WORLD_MAX)
-        cy = clamp_world(y, WORLD_MIN, WORLD_MAX)
-        self._call_sync(self.teleport_client, TeleportAbsolute.Request(x=cx, y=cy, theta=theta))
+        self._call_sync(self.teleport_client, TeleportAbsolute.Request(x=x, y=y, theta=theta))
 
     def _draw_line(self, x1: float, y1: float, x2: float, y2: float, width: int = 2) -> None:
         self._set_pen(30, 30, 30, width, True)
@@ -178,19 +172,18 @@ class HotelMapNode(Node):
         room_w = 1.4
         room_h = 1.6
         upper = door.y >= corridor_y
-        rect_x = max(0.3, min(door.x - room_w / 2.0, 10.7 - room_w))
+        rect_x = door.x - room_w / 2.0
         rect_y = door.y + 0.4 if upper else door.y - 0.4 - room_h
-        rect_y = max(0.3, min(rect_y, 10.7 - room_h))
 
         self._draw_rectangle(rect_x, rect_y, room_w, room_h)
         if upper:
             self._draw_line(door.x, rect_y, door.x, door.y - 0.25, width=4)
-            text_y = min(10.2, rect_y + room_h + 0.1)
+            text_y = rect_y + room_h + 0.1
         else:
             self._draw_line(door.x, rect_y + room_h, door.x, door.y + 0.25, width=4)
-            text_y = max(0.2, rect_y - 0.35)
+            text_y = rect_y - 0.35
 
-        text_x = max(0.2, min(9.8, door.x - 0.45))
+        text_x = door.x - 0.45
         self._draw_text(room_name, text_x, text_y)
 
     def _draw_map(self) -> None:
@@ -204,7 +197,7 @@ class HotelMapNode(Node):
         for room_name, door in room_map.items():
             self._draw_room_and_label(room_name, door, corridor_y)
 
-        self._draw_rectangle(max(0.2, start_x - 0.8), max(0.2, start_y - 0.6), 1.6, 1.2)
+        self._draw_rectangle(start_x - 0.8, start_y - 0.6, 1.6, 1.2)
 
 
 def main() -> None:
