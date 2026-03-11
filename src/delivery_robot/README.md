@@ -23,7 +23,7 @@ delivery_robot/
 ├── setup.cfg
 ├── resource/
 │   └── delivery_robot
-├── delivery_robot/
+├── delivery_robot_nodes/
 │   ├── __init__.py
 │   ├── common.py
 │   ├── hotel_map_node.py

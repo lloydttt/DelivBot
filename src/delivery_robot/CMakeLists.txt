@@ -12,13 +12,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ResetRobot.srv"
 )
 
-ament_python_install_package(${PROJECT_NAME})
+ament_python_install_package(delivery_robot_nodes)
 
 install(PROGRAMS
-  delivery_robot/hotel_map_node.py
-  delivery_robot/delivery_manager_node.py
-  delivery_robot/path_motion_node.py
-  delivery_robot/status_monitor_node.py
+  delivery_robot_nodes/hotel_map_node.py
+  delivery_robot_nodes/delivery_manager_node.py
+  delivery_robot_nodes/path_motion_node.py
+  delivery_robot_nodes/status_monitor_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
