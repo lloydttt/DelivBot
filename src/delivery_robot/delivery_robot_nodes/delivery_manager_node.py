@@ -22,6 +22,7 @@ from delivery_robot_nodes.common import (
     normalize_room_names,
     Point2D,
     build_path_for_room,
+    build_return_path_from_room,
     encode_path,
     room_positions_from_params,
 )
@@ -40,7 +41,10 @@ class DeliveryManagerNode(Node):
         self.state = STATE_IDLE
         self.current_room = ''
         self.has_task = False
+        self.returning = False
         self.active_path = []
+        self.return_timer = None
+
 
         self.status_pub = self.create_publisher(String, '/delivery_status', 10)
         self.room_pub = self.create_publisher(String, '/current_target_room', 10)
@@ -69,6 +73,7 @@ class DeliveryManagerNode(Node):
         self._declare_if_needed('start_x', 0.8)
         self._declare_if_needed('start_y', 1.0)
         self._declare_if_needed('corridor_y', 5.5)
+        self._declare_if_needed('return_wait_seconds', 2.0)
         self._declare_if_needed('room_names', list(VALID_ROOMS))
         for room in VALID_ROOMS:
             self._declare_if_needed(f'{room}_x', 5.0)
@@ -85,6 +90,7 @@ class DeliveryManagerNode(Node):
             'start_x': float(self.get_parameter('start_x').value),
             'start_y': float(self.get_parameter('start_y').value),
             'corridor_y': float(self.get_parameter('corridor_y').value),
+            'return_wait_seconds': float(self.get_parameter('return_wait_seconds').value),
         }
         for room in self.room_names:
             values[f'{room}_x'] = float(self.get_parameter(f'{room}_x').value)
@@ -133,6 +139,7 @@ class DeliveryManagerNode(Node):
         self.current_room = room_name
         self.active_path = path
         self.has_task = True
+        self.returning = False
 
         path_msg = String()
         path_msg.data = encode_path(path)
@@ -150,13 +157,55 @@ class DeliveryManagerNode(Node):
         elif 'segment 3/' in msg.data:
             self._set_state(STATE_APPROACHING_ROOM)
 
+    def _schedule_return_to_start(self) -> None:
+        """Wait briefly at destination then send a return path to start."""
+        wait_sec = max(0.0, float(self.params['return_wait_seconds']))
+        self.get_logger().info(f'arrived at {self.current_room}, waiting {wait_sec:.1f}s before return')
+        if self.return_timer is not None:
+            self.return_timer.cancel()
+        self.return_timer = self.create_timer(wait_sec, self._start_return_once)
+
+    def _start_return_once(self) -> None:
+        if self.return_timer is not None:
+            self.return_timer.cancel()
+            self.return_timer = None
+
+        if self.state != STATE_ARRIVED or not self.has_task or self.returning:
+            return
+        room_map = room_positions_from_params(self.params, self.room_names)
+        start = Point2D(self.params['start_x'], self.params['start_y'])
+        return_path = build_return_path_from_room(self.current_room, start, self.params['corridor_y'], room_map)
+        if len(return_path) <= 1:
+            self.get_logger().error('failed to build return path; keeping robot at current position')
+            return
+        self.returning = True
+        msg = String()
+        msg.data = encode_path(return_path)
+        self.path_pub.publish(msg)
+        self._set_state(STATE_DELIVERING_TO_CORRIDOR)
+        self.get_logger().info(f'return path to start published: {msg.data}')
+
     def _on_arrival(self, msg: Bool) -> None:
-        if msg.data and self.has_task:
-            self._set_state(STATE_ARRIVED)
-            self.get_logger().info(f'arrived at {self.current_room}')
+        if not msg.data or not self.has_task:
+            return
+
+        if self.returning:
+            self._set_state(STATE_IDLE)
+            self.get_logger().info('robot returned to start, task completed')
+            self.current_room = ''
+            self.has_task = False
+            self.active_path = []
+            self.returning = False
+            if self.return_timer is not None:
+                self.return_timer.cancel()
+                self.return_timer = None
+            return
+
+        self._set_state(STATE_ARRIVED)
+        self._schedule_return_to_start()
 
     def _cancel_delivery(self, _: CancelDelivery.Request, response: CancelDelivery.Response) -> CancelDelivery.Response:
-        if not self.has_task or self.state in (STATE_IDLE, STATE_ARRIVED, STATE_CANCELLED):
+        if not self.has_task or self.state in (STATE_IDLE, STATE_CANCELLED):
             response.success = False
             response.message = 'No active delivery to cancel.'
             return response
@@ -166,6 +215,10 @@ class DeliveryManagerNode(Node):
         self.cmd_pub.publish(stop)
         self.path_pub.publish(String(data=''))
         self.has_task = False
+        self.returning = False
+        if self.return_timer is not None:
+            self.return_timer.cancel()
+            self.return_timer = None
         response.success = True
         response.message = 'Delivery cancelled.'
         return response
@@ -198,6 +251,10 @@ class DeliveryManagerNode(Node):
 
         self.current_room = ''
         self.has_task = False
+        self.returning = False
+        if self.return_timer is not None:
+            self.return_timer.cancel()
+            self.return_timer = None
         self._set_state(STATE_IDLE)
         response.success = True
         response.message = 'Robot reset to start point.'

@@ -77,6 +77,32 @@ def build_path_for_room(room_name: str, start: Point2D, corridor_y: float, room_
     return compact_path
 
 
+def build_return_path_from_room(
+    room_name: str,
+    start: Point2D,
+    corridor_y: float,
+    room_map: Dict[str, Point2D],
+) -> List[Point2D]:
+    """Create return waypoints from room door back to start via corridor."""
+    if room_name not in room_map:
+        return []
+
+    door = room_map[room_name]
+    path = [
+        Point2D(door.x, door.y),
+        Point2D(door.x, corridor_y),
+        Point2D(start.x, corridor_y),
+        Point2D(start.x, start.y),
+    ]
+
+    compact_path: List[Point2D] = [path[0]]
+    for pt in path[1:]:
+        prev = compact_path[-1]
+        if abs(prev.x - pt.x) > 1e-6 or abs(prev.y - pt.y) > 1e-6:
+            compact_path.append(pt)
+    return compact_path
+
+
 def encode_path(path: List[Point2D]) -> str:
     """Encode waypoints to a compact topic-friendly string."""
     return ';'.join(f'{p.x:.3f},{p.y:.3f}' for p in path)

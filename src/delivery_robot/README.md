@@ -7,6 +7,7 @@
 - 使用辅助海龟自动绘制酒店地图（走廊、房间、门口、起点）。
 - 支持基于服务接口的任务控制（开始/取消/查询/复位）。
 - 路径采用预定义走廊路径点，便于调试与展示。
+- 到达房门后会停留 `return_wait_seconds` 秒，然后自动返回起点。
 
 ## 2. 功能说明
 - Topic：位姿、速度控制、状态、路径进度、到达标记。
@@ -89,12 +90,14 @@ ros2 param get /delivery_manager_node corridor_y
 1. **服务调用超时**：确认 `ros2 node list` 中五个节点都已启动。
 2. **机器人不动**：检查 `/delivery_path` 是否有消息、`/turtle1/pose` 是否正常。
 3. **地图未绘制**：确认 turtlesim 服务存在：`ros2 service list | grep spawn`。
-4. **房间号错误**：仅支持 `room_101/102/103/201/202/203`。
+4. **房间号错误**：仅支持 `room_names` 参数中声明的房间名。
 
 ## 11. 参数化房间命名与位置
 - 在 `config/hotel_params.yaml` 中通过 `room_names` 配置房间列表，系统会按该列表动态读取 `<room_name>_x/<room_name>_y`，并在地图上标注对应房间号。
 - 例如新增 `vip_a`：将 `room_names` 改为包含 `"vip_a"`，并增加 `vip_a_x` 与 `vip_a_y` 参数。
 - 起点由 `start_x/start_y` 控制，已默认放到左下远处，避免初始就在走廊中间。
+- 通过调大房间坐标间距（本仓库默认已拉大）可减少房间号文字重叠。
+- 可通过 `return_wait_seconds` 控制到房间后停留时长。
 
 ## 12. 调试建议
 - 观察 `status_monitor_node` 的调试仪表板输出。
