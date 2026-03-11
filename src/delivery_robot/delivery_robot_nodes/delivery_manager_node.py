@@ -19,6 +19,7 @@ from delivery_robot_nodes.common import (
     STATE_MOVING_ALONG_CORRIDOR,
     STATE_PLANNING,
     VALID_ROOMS,
+    normalize_room_names,
     Point2D,
     build_path_for_room,
     encode_path,
@@ -33,6 +34,7 @@ class DeliveryManagerNode(Node):
     def __init__(self) -> None:
         super().__init__('delivery_manager_node')
         self._declare_parameters()
+        self.room_names = []
         self.params = self._read_params()
 
         self.state = STATE_IDLE
@@ -54,24 +56,32 @@ class DeliveryManagerNode(Node):
 
         self.teleport_client = self.create_client(TeleportAbsolute, '/turtle1/teleport_absolute')
         self.publish_timer = self.create_timer(0.5, self._periodic_publish)
+        self.init_timer = self.create_timer(1.0, self._initialize_robot_pose)
 
-        self.get_logger().info('delivery_manager_node ready.')
+        self.get_logger().info(f'delivery_manager_node ready. valid rooms={self.room_names}')
 
     def _declare_parameters(self) -> None:
-        self.declare_parameter('start_x', 1.5)
-        self.declare_parameter('start_y', 2.0)
+        self.declare_parameter('start_x', 0.8)
+        self.declare_parameter('start_y', 1.0)
         self.declare_parameter('corridor_y', 5.5)
+        self.declare_parameter('room_names', list(VALID_ROOMS))
         for room in VALID_ROOMS:
             self.declare_parameter(f'{room}_x', 5.0)
             self.declare_parameter(f'{room}_y', 5.0)
 
     def _read_params(self) -> Dict[str, float]:
+        self.room_names = normalize_room_names(list(self.get_parameter('room_names').value))
+
+        for room in self.room_names:
+            self.declare_parameter(f'{room}_x', 5.0)
+            self.declare_parameter(f'{room}_y', 5.0)
+
         values = {
             'start_x': float(self.get_parameter('start_x').value),
             'start_y': float(self.get_parameter('start_y').value),
             'corridor_y': float(self.get_parameter('corridor_y').value),
         }
-        for room in VALID_ROOMS:
+        for room in self.room_names:
             values[f'{room}_x'] = float(self.get_parameter(f'{room}_x').value)
             values[f'{room}_y'] = float(self.get_parameter(f'{room}_y').value)
         return values
@@ -80,6 +90,28 @@ class DeliveryManagerNode(Node):
         if self.state != new_state:
             self.get_logger().info(f'state transition: {self.state} -> {new_state}')
             self.state = new_state
+
+
+    def _initialize_robot_pose(self) -> None:
+        """Move turtle1 to configured start point once at startup."""
+        if not self.teleport_client.wait_for_service(timeout_sec=0.2):
+            self.get_logger().info('waiting /turtle1/teleport_absolute for initial pose...')
+            return
+
+        req = TeleportAbsolute.Request()
+        req.x = float(self.params['start_x'])
+        req.y = float(self.params['start_y'])
+        req.theta = 0.0
+        future = self.teleport_client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
+        if future.result() is None:
+            self.get_logger().warn('initial pose set failed, will retry...')
+            return
+
+        self.get_logger().info(
+            f'robot initialized to start point ({self.params["start_x"]:.2f}, {self.params["start_y"]:.2f})'
+        )
+        self.init_timer.cancel()
 
     def _periodic_publish(self) -> None:
         status = String()
@@ -98,14 +130,14 @@ class DeliveryManagerNode(Node):
             response.message = f'Robot busy in state={self.state}'
             return response
 
-        if room_name not in VALID_ROOMS:
+        if room_name not in self.room_names:
             self._set_state(STATE_ERROR)
             response.success = False
             response.message = f'Invalid room name: {room_name}'
             return response
 
         self._set_state(STATE_PLANNING)
-        room_map = room_positions_from_params(self.params)
+        room_map = room_positions_from_params(self.params, self.room_names)
         start = Point2D(self.params['start_x'], self.params['start_y'])
         path = build_path_for_room(room_name, start, self.params['corridor_y'], room_map)
         if not path:

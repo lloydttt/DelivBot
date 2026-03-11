@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from math import atan2, pi
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
 STATE_IDLE = 'idle'
 STATE_PLANNING = 'planning'
@@ -13,6 +13,7 @@ STATE_ARRIVED = 'arrived'
 STATE_CANCELLED = 'cancelled'
 STATE_ERROR = 'error'
 
+# Fallback room list. Real runtime list should come from parameter `room_names`.
 VALID_ROOMS = ('room_101', 'room_102', 'room_103', 'room_201', 'room_202', 'room_203')
 
 
@@ -38,16 +39,21 @@ def heading_to(from_pt: Point2D, to_pt: Point2D) -> float:
     return atan2(to_pt.y - from_pt.y, to_pt.x - from_pt.x)
 
 
-def room_positions_from_params(params: Dict[str, float]) -> Dict[str, Point2D]:
-    """Build room target map from parameter dict."""
-    return {
-        'room_101': Point2D(params['room_101_x'], params['room_101_y']),
-        'room_102': Point2D(params['room_102_x'], params['room_102_y']),
-        'room_103': Point2D(params['room_103_x'], params['room_103_y']),
-        'room_201': Point2D(params['room_201_x'], params['room_201_y']),
-        'room_202': Point2D(params['room_202_x'], params['room_202_y']),
-        'room_203': Point2D(params['room_203_x'], params['room_203_y']),
-    }
+def normalize_room_names(room_names: Iterable[str]) -> List[str]:
+    """Normalize room names from parameters."""
+    normalized = [r.strip().lower() for r in room_names if r.strip()]
+    return normalized if normalized else list(VALID_ROOMS)
+
+
+def room_positions_from_params(params: Dict[str, float], room_names: Iterable[str]) -> Dict[str, Point2D]:
+    """Build room target map from parameter dict and provided room names."""
+    room_map: Dict[str, Point2D] = {}
+    for room in normalize_room_names(room_names):
+        x_key = f'{room}_x'
+        y_key = f'{room}_y'
+        if x_key in params and y_key in params:
+            room_map[room] = Point2D(params[x_key], params[y_key])
+    return room_map
 
 
 def build_path_for_room(room_name: str, start: Point2D, corridor_y: float, room_map: Dict[str, Point2D]) -> List[Point2D]:

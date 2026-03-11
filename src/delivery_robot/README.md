@@ -91,18 +91,23 @@ ros2 param get /delivery_manager_node corridor_y
 3. **地图未绘制**：确认 turtlesim 服务存在：`ros2 service list | grep spawn`。
 4. **房间号错误**：仅支持 `room_101/102/103/201/202/203`。
 
-## 11. 调试建议
+## 11. 参数化房间命名与位置
+- 在 `config/hotel_params.yaml` 中通过 `room_names` 配置房间列表，系统会按该列表动态读取 `<room_name>_x/<room_name>_y`，并在地图上标注对应房间号。
+- 例如新增 `vip_a`：将 `room_names` 改为包含 `"vip_a"`，并增加 `vip_a_x` 与 `vip_a_y` 参数。
+- 起点由 `start_x/start_y` 控制，已默认放到左下远处，避免初始就在走廊中间。
+
+## 12. 调试建议
 - 观察 `status_monitor_node` 的调试仪表板输出。
 - 使用 `ros2 topic echo /path_progress` 看路径段与误差变化。
 - 动态调参：`robot_speed`、`angular_gain`、`arrival_tolerance`。
 
-## 12. 演示流程建议
+## 13. 演示流程建议
 1. 启动 launch。
 2. 调用 `/start_delivery` 下发目标房间。
 3. 展示状态机阶段切换：`idle -> planning -> ... -> arrived`。
 4. 演示 `/cancel_delivery` 与 `/reset_robot_to_start`。
 
-## 13. 易错点
+## 14. 易错点
 - 自定义 srv 未编译（需要先 `colcon build` 再 `source install/setup.bash`）。
 - 启动前未 source 工作区。
 - 路径为空时管理器会拒绝任务。
