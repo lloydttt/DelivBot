@@ -1,0 +1,28 @@
+/**:
+  ros__parameters:
+    start_x: 1.5
+    start_y: 1.8
+
+    robot_speed: 1.8
+    angular_gain: 5.0
+    arrival_tolerance: 0.12
+    slowdown_distance: 0.7
+
+    corridor_y: 5.5
+    map_draw_speed: 3
+
+    room_101_x: 4.8
+    room_101_y: 6.0
+    room_102_x: 7.0
+    room_102_y: 6.0
+    room_103_x: 9.2
+    room_103_y: 6.0
+    room_201_x: 4.8
+    room_201_y: 5.0
+    room_202_x: 7.0
+    room_202_y: 5.0
+    room_203_x: 9.2
+    room_203_y: 5.0
+
+    enable_status_log: true
+    show_debug_path: true
