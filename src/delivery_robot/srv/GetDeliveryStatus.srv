@@ -1,0 +1,4 @@
+---
+string status
+string current_room
+bool has_task
