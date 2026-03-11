@@ -10,8 +10,6 @@ from turtlesim.srv import Kill, SetPen, Spawn, TeleportAbsolute
 
 from delivery_robot_nodes.common import Point2D, VALID_ROOMS, normalize_room_names, room_positions_from_params
 
-# Very small vector-font strokes in normalized [0,1] coordinates.
-# Each char is a list of line segments: ((x1, y1), (x2, y2))
 FONT: Dict[str, List[Tuple[Tuple[float, float], Tuple[float, float]]]] = {
     '0': [((0, 0), (1, 0)), ((1, 0), (1, 1)), ((1, 1), (0, 1)), ((0, 1), (0, 0))],
     '1': [((0.5, 0), (0.5, 1))],
@@ -40,6 +38,8 @@ class HotelMapNode(Node):
 
         self.spawn_client = self.create_client(Spawn, '/spawn')
         self.kill_client = self.create_client(Kill, '/kill')
+        self.turtle1_tp_client = self.create_client(TeleportAbsolute, '/turtle1/teleport_absolute')
+        self.turtle1_pen_client = self.create_client(SetPen, '/turtle1/set_pen')
 
         self.drawer_name = 'map_drawer'
         self.teleport_client = None
@@ -48,11 +48,13 @@ class HotelMapNode(Node):
         self.get_logger().info('waiting turtlesim drawing services...')
         self._wait_client(self.spawn_client, '/spawn')
         self._wait_client(self.kill_client, '/kill')
+        self._wait_client(self.turtle1_tp_client, '/turtle1/teleport_absolute')
+        self._wait_client(self.turtle1_pen_client, '/turtle1/set_pen')
+
+        self._prepare_main_robot()
         self._draw_once_on_startup()
 
-
     def _declare_if_needed(self, name: str, default_value) -> None:
-        """Declare parameter only when it is not declared yet."""
         if not self.has_parameter(name):
             self.declare_parameter(name, default_value)
 
@@ -93,6 +95,21 @@ class HotelMapNode(Node):
             raise RuntimeError(f'service call timeout: {client.srv_name}')
         return future.result()
 
+    def _prepare_main_robot(self) -> None:
+        """Place turtle1 at start and disable pen before map drawing."""
+        self._call_sync(self.turtle1_pen_client, SetPen.Request(r=0, g=0, b=0, width=1, off=1))
+        self._call_sync(
+            self.turtle1_tp_client,
+            TeleportAbsolute.Request(
+                x=float(self.params['start_x']),
+                y=float(self.params['start_y']),
+                theta=0.0,
+            ),
+        )
+        self.get_logger().info(
+            f'main robot prepared at start ({self.params["start_x"]:.2f}, {self.params["start_y"]:.2f}), pen off'
+        )
+
     def _draw_once_on_startup(self) -> None:
         self.get_logger().info('start drawing hotel map')
         try:
@@ -121,7 +138,10 @@ class HotelMapNode(Node):
         self._call_sync(self.pen_client, SetPen.Request(r=r, g=g, b=b, width=width, off=int(off)))
 
     def _teleport(self, x: float, y: float, theta: float = 0.0) -> None:
-        self._call_sync(self.teleport_client, TeleportAbsolute.Request(x=x, y=y, theta=theta))
+        # Keep drawing turtle inside map bounds to avoid wall-hit warnings.
+        cx = min(max(x, 0.2), 10.8)
+        cy = min(max(y, 0.2), 10.8)
+        self._call_sync(self.teleport_client, TeleportAbsolute.Request(x=cx, y=cy, theta=theta))
 
     def _draw_line(self, x1: float, y1: float, x2: float, y2: float, width: int = 2) -> None:
         self._set_pen(30, 30, 30, width, True)
@@ -136,7 +156,6 @@ class HotelMapNode(Node):
         self._draw_line(x, y + h, x, y)
 
     def _draw_text(self, text: str, x: float, y: float, scale: float = 0.22, spacing: float = 0.10) -> None:
-        """Draw text using simple line strokes."""
         cursor_x = x
         for ch in text.upper():
             glyph = FONT.get(ch)
@@ -144,20 +163,12 @@ class HotelMapNode(Node):
                 cursor_x += scale + spacing
                 continue
             for (x1, y1), (x2, y2) in glyph:
-                self._draw_line(
-                    cursor_x + x1 * scale,
-                    y + y1 * scale,
-                    cursor_x + x2 * scale,
-                    y + y2 * scale,
-                    width=2,
-                )
+                self._draw_line(cursor_x + x1 * scale, y + y1 * scale, cursor_x + x2 * scale, y + y2 * scale, width=2)
             cursor_x += scale + spacing
 
     def _draw_room_and_label(self, room_name: str, door: Point2D, corridor_y: float) -> None:
         room_w = 1.4
         room_h = 1.6
-        door_len = 0.5
-
         upper = door.y >= corridor_y
         rect_x = max(0.3, min(door.x - room_w / 2.0, 10.7 - room_w))
         rect_y = door.y + 0.4 if upper else door.y - 0.4 - room_h
@@ -165,13 +176,13 @@ class HotelMapNode(Node):
 
         self._draw_rectangle(rect_x, rect_y, room_w, room_h)
         if upper:
-            self._draw_line(door.x, rect_y, door.x, door.y - door_len * 0.5, width=4)
-            text_y = min(10.6, rect_y + room_h + 0.1)
+            self._draw_line(door.x, rect_y, door.x, door.y - 0.25, width=4)
+            text_y = min(10.2, rect_y + room_h + 0.1)
         else:
-            self._draw_line(door.x, rect_y + room_h, door.x, door.y + door_len * 0.5, width=4)
+            self._draw_line(door.x, rect_y + room_h, door.x, door.y + 0.25, width=4)
             text_y = max(0.2, rect_y - 0.35)
 
-        text_x = max(0.2, min(10.0, door.x - 0.45))
+        text_x = max(0.2, min(9.8, door.x - 0.45))
         self._draw_text(room_name, text_x, text_y)
 
     def _draw_map(self) -> None:
@@ -181,11 +192,10 @@ class HotelMapNode(Node):
         room_names = self.params['room_names']
         room_map = room_positions_from_params(self.params, room_names)
 
-        self._draw_line(1.0, corridor_y, 10.5, corridor_y, width=3)
+        self._draw_line(1.0, corridor_y, 10.2, corridor_y, width=3)
         for room_name, door in room_map.items():
             self._draw_room_and_label(room_name, door, corridor_y)
 
-        # Start zone moved with start parameters so turtle starts far from corridor.
         self._draw_rectangle(max(0.2, start_x - 0.8), max(0.2, start_y - 0.6), 1.6, 1.2)
 
 

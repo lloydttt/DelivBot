@@ -56,7 +56,6 @@ class DeliveryManagerNode(Node):
 
         self.teleport_client = self.create_client(TeleportAbsolute, '/turtle1/teleport_absolute')
         self.publish_timer = self.create_timer(0.5, self._periodic_publish)
-        self.init_timer = self.create_timer(1.0, self._initialize_robot_pose)
 
         self.get_logger().info(f'delivery_manager_node ready. valid rooms={self.room_names}')
 
@@ -97,27 +96,6 @@ class DeliveryManagerNode(Node):
             self.get_logger().info(f'state transition: {self.state} -> {new_state}')
             self.state = new_state
 
-
-    def _initialize_robot_pose(self) -> None:
-        """Move turtle1 to configured start point once at startup."""
-        if not self.teleport_client.wait_for_service(timeout_sec=0.2):
-            self.get_logger().info('waiting /turtle1/teleport_absolute for initial pose...')
-            return
-
-        req = TeleportAbsolute.Request()
-        req.x = float(self.params['start_x'])
-        req.y = float(self.params['start_y'])
-        req.theta = 0.0
-        future = self.teleport_client.call_async(req)
-        rclpy.spin_until_future_complete(self, future, timeout_sec=2.0)
-        if future.result() is None:
-            self.get_logger().warn('initial pose set failed, will retry...')
-            return
-
-        self.get_logger().info(
-            f'robot initialized to start point ({self.params["start_x"]:.2f}, {self.params["start_y"]:.2f})'
-        )
-        self.init_timer.cancel()
 
     def _periodic_publish(self) -> None:
         status = String()
