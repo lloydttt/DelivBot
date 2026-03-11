@@ -1,0 +1,37 @@
+/**:
+  ros__parameters:
+    # Put robot at a far lower-left area, away from corridor.
+    start_x: 0.8
+    start_y: 0.9
+
+    robot_speed: 1.8
+    angular_gain: 5.0
+    arrival_tolerance: 0.12
+    slowdown_distance: 0.7
+
+    corridor_y: 5.5
+    map_draw_speed: 3
+
+    # You can rename rooms here; map labels and valid service room names
+    # are read from this list at startup.
+    room_names: ["room_101", "room_102", "room_103", "room_201", "room_202", "room_203"]
+
+    # Enlarged spacing between adjacent rooms to reduce label overlap.
+    room_101_x: 2.6
+    room_101_y: 7.0
+    room_102_x: 5.8
+    room_102_y: 7.0
+    room_103_x: 9.0
+    room_103_y: 7.0
+    room_201_x: 2.6
+    room_201_y: 4.0
+    room_202_x: 5.8
+    room_202_y: 4.0
+    room_203_x: 9.0
+    room_203_y: 4.0
+
+    # Wait duration (seconds) at room door before auto returning to start.
+    return_wait_seconds: 2.5
+
+    enable_status_log: true
+    show_debug_path: true
