@@ -60,21 +60,27 @@ class DeliveryManagerNode(Node):
 
         self.get_logger().info(f'delivery_manager_node ready. valid rooms={self.room_names}')
 
+
+    def _declare_if_needed(self, name: str, default_value) -> None:
+        """Declare parameter only when it is not declared yet."""
+        if not self.has_parameter(name):
+            self.declare_parameter(name, default_value)
+
     def _declare_parameters(self) -> None:
-        self.declare_parameter('start_x', 0.8)
-        self.declare_parameter('start_y', 1.0)
-        self.declare_parameter('corridor_y', 5.5)
-        self.declare_parameter('room_names', list(VALID_ROOMS))
+        self._declare_if_needed('start_x', 0.8)
+        self._declare_if_needed('start_y', 1.0)
+        self._declare_if_needed('corridor_y', 5.5)
+        self._declare_if_needed('room_names', list(VALID_ROOMS))
         for room in VALID_ROOMS:
-            self.declare_parameter(f'{room}_x', 5.0)
-            self.declare_parameter(f'{room}_y', 5.0)
+            self._declare_if_needed(f'{room}_x', 5.0)
+            self._declare_if_needed(f'{room}_y', 5.0)
 
     def _read_params(self) -> Dict[str, float]:
         self.room_names = normalize_room_names(list(self.get_parameter('room_names').value))
 
         for room in self.room_names:
-            self.declare_parameter(f'{room}_x', 5.0)
-            self.declare_parameter(f'{room}_y', 5.0)
+            self._declare_if_needed(f'{room}_x', 5.0)
+            self._declare_if_needed(f'{room}_y', 5.0)
 
         values = {
             'start_x': float(self.get_parameter('start_x').value),
